@@ -1,0 +1,43 @@
+name: Upload rendered Short to YouTube (private)
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: 'Successful Remotion render workflow run ID'
+        required: true
+        type: string
+permissions:
+  actions: read
+  contents: read
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Validate required secrets
+        env:
+          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+          YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+        run: |
+          test -n "$YT_CLIENT_ID" || { echo "Missing YT_CLIENT_ID"; exit 1; }
+          test -n "$YT_CLIENT_SECRET" || { echo "Missing YT_CLIENT_SECRET"; exit 1; }
+          test -n "$YT_REFRESH_TOKEN" || { echo "Missing YT_REFRESH_TOKEN"; exit 1; }
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: fortnite-short-preview
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ github.token }}
+          path: video
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install YouTube uploader dependencies
+        run: pip install --disable-pip-version-check google-api-python-client google-auth-oauthlib google-auth-httplib2
+      - name: Upload as private
+        env:
+          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+          YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+        run: python fortnite-shorts/scripts/upload_youtube.py video/fortnite-tips.mp4
